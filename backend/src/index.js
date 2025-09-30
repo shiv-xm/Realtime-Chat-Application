@@ -23,6 +23,10 @@ const server = http.createServer(app);
 // Attach Socket.io
 const { io, getReceiverSocketId } = createSocketServer(server);
 
+// Make io and getReceiverSocketId accessible in controllers
+app.set("io", io);
+app.set("getReceiverSocketId", getReceiverSocketId);
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -55,5 +59,3 @@ server.listen(PORT, () => {
   console.log("Server running on port", PORT);
   connectDB();
 });
-
-export { io, getReceiverSocketId };
