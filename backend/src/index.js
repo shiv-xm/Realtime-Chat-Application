@@ -16,19 +16,19 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const __dirname = path.resolve();
 
-// Create Express app
+// Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
 
 // Attach Socket.io
-const io = createSocketServer(server);
+const { io, getReceiverSocketId } = createSocketServer(server);
 
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173", // your frontend URL
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
@@ -43,15 +43,17 @@ if (process.env.NODE_ENV === "production") {
 
   app.use(express.static(frontendPath));
 
-  // React Router fallback for non-API routes
+  // React Router fallback
   app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) return next(); // skip API routes
+    if (req.path.startsWith("/api")) return next();
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
 
 // Start server and connect DB
 server.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("Server running on port", PORT);
   connectDB();
 });
+
+export { io, getReceiverSocketId };
