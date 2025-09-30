@@ -5,10 +5,10 @@ import cloudinary from "../lib/cloudinary.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
-    res.status(200).json(filteredUsers);
+    const users = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+    res.status(200).json(users);
   } catch (error) {
-    console.error(error);
+    console.error("Error in getUsersForSidebar:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -17,15 +17,17 @@ export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
+
     const messages = await Message.find({
       $or: [
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
     });
+
     res.status(200).json(messages);
   } catch (error) {
-    console.error(error);
+    console.error("Error in getMessages:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -48,9 +50,10 @@ export const sendMessage = async (req, res) => {
       text,
       image: imageUrl,
     });
+
     await newMessage.save();
 
-    // Use io from app
+    // Get io and helper from app
     const io = req.app.get("io");
     const getReceiverSocketId = req.app.get("getReceiverSocketId");
 
@@ -61,7 +64,8 @@ export const sendMessage = async (req, res) => {
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.error(error);
+    console.error("Error in sendMessage:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
