@@ -1,19 +1,24 @@
 import { Server } from "socket.io";
 
-let io; // Socket.io instance
-const userSocketMap = {}; // { userId: socketId }
-
-// Create Socket.io server on top of existing HTTP server
 export function createSocketServer(server) {
-  io = new Server(server, {
+  const io = new Server(server, {
     cors: {
-      origin: ["http://localhost:5173"], // frontend origin
+      origin: ["http://localhost:5173"], // frontend URL
       credentials: true,
     },
   });
 
+  // Map to store online users
+  const userSocketMap = {}; // { userId: socketId }
+
+  // Helper to get a user's socket ID
+  function getReceiverSocketId(userId) {
+    return userSocketMap[userId];
+  }
+
+  // Socket connection
   io.on("connection", (socket) => {
-    console.log("A user connected", socket.id);
+    console.log("A user connected:", socket.id);
 
     const userId = socket.handshake.query.userId;
     if (userId) userSocketMap[userId] = socket.id;
@@ -22,16 +27,11 @@ export function createSocketServer(server) {
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
     socket.on("disconnect", () => {
-      console.log("A user disconnected", socket.id);
+      console.log("A user disconnected:", socket.id);
       delete userSocketMap[userId];
       io.emit("getOnlineUsers", Object.keys(userSocketMap));
     });
   });
 
-  return io;
-}
-
-// Helper to get a specific user's socket ID
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
+  return { io, getReceiverSocketId };
 }
