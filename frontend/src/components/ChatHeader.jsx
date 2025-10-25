@@ -1,10 +1,30 @@
-import { X } from "lucide-react";
+import { X, Search } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import { useState, useRef, useEffect } from "react";
+import UserProfileModal from "./UserProfileModal";
 
 const ChatHeader = () => {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { setSearchMode, setSearchQuery, searchQuery } = useChatStore();
+
+  const [showProfile, setShowProfile] = useState(false);
+  const [showMsgSearch, setShowMsgSearch] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (showMsgSearch) {
+      setSearchMode("messages");
+      // focus input when it appears
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      // clear message search when closed
+      setSearchQuery("");
+      setSearchMode("people");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMsgSearch]);
 
   return (
     <div className="p-2.5 border-b border-base-300">
@@ -17,20 +37,40 @@ const ChatHeader = () => {
             </div>
           </div>
 
-          {/* User info */}
+          {/* User info - name is clickable to open profile modal */}
           <div>
-            <h3 className="font-medium">{selectedUser.fullName}</h3>
-            <p className="text-sm text-base-content/70">
-              {onlineUsers.includes(selectedUser._id) ? "Online" : "Offline"}
-            </p>
+            <button onClick={() => setShowProfile(true)} className="font-medium hover:underline">
+              {selectedUser.fullName}
+            </button>
+            <p className="text-sm text-base-content/70">{onlineUsers.includes(selectedUser._id) ? "Online" : "Offline"}</p>
           </div>
         </div>
 
-        {/* Close button */}
-        <button onClick={() => setSelectedUser(null)}>
-          <X />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* message search toggle */}
+          {showMsgSearch ? (
+            <input
+              ref={inputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search this chat"
+              className="input input-sm"
+            />
+          ) : (
+            <button onClick={() => setShowMsgSearch(true)} aria-label="Search messages">
+              <Search />
+            </button>
+          )}
+
+          {/* Close button */}
+          <button onClick={() => setSelectedUser(null)}>
+            <X />
+          </button>
+        </div>
       </div>
+
+      {/* Profile modal */}
+      {showProfile && <UserProfileModal user={selectedUser} onClose={() => setShowProfile(false)} />}
     </div>
   );
 };

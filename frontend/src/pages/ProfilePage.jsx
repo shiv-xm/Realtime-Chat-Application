@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Camera, Mail, User } from "lucide-react";
 
 const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
   const [selectedImg, setSelectedImg] = useState(null);
+  const [fullName, setFullName] = useState("");
+  const [bio, setBio] = useState("");
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -19,6 +21,23 @@ const ProfilePage = () => {
       setSelectedImg(base64Image);
       await updateProfile({ profilePic: base64Image });
     };
+  };
+
+  useEffect(() => {
+    if (authUser) {
+      setFullName(authUser.fullName || "");
+      setBio(authUser.bio || "");
+    }
+  }, [authUser]);
+
+  const handleSave = async () => {
+    const payload = { fullName, bio };
+    // only include profilePic if a new one was selected via instant upload flow
+    try {
+      await updateProfile(payload);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -71,7 +90,11 @@ const ProfilePage = () => {
                 <User className="w-4 h-4" />
                 Full Name
               </div>
-              <p className="px-4 py-2.5 bg-base-200 rounded-lg border">{authUser?.fullName}</p>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="px-4 py-2.5 bg-base-200 rounded-lg border w-full"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -80,6 +103,16 @@ const ProfilePage = () => {
                 Email Address
               </div>
               <p className="px-4 py-2.5 bg-base-200 rounded-lg border">{authUser?.email}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-sm text-zinc-400 flex items-center gap-2">Bio</div>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="px-4 py-2.5 bg-base-200 rounded-lg border w-full textarea"
+                rows={4}
+              />
             </div>
           </div>
 
@@ -95,6 +128,12 @@ const ProfilePage = () => {
                 <span className="text-green-500">Active</span>
               </div>
             </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button className="btn btn-primary" onClick={handleSave} disabled={isUpdatingProfile}>
+              {isUpdatingProfile ? "Saving..." : "Save Changes"}
+            </button>
           </div>
         </div>
       </div>
