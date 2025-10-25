@@ -7,6 +7,8 @@ export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
   selectedUser: null,
+  searchQuery: "",
+  searchMode: "people", // "people" or "messages"
   isUsersLoading: false,
   isMessagesLoading: false,
 
@@ -65,4 +67,6 @@ export const useChatStore = create((set, get) => ({
   },
 
   setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSearchMode: (searchMode) => set({ searchMode }),
 }));
