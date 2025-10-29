@@ -2,9 +2,10 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import Report from "../models/report.model.js";
 
 export const signup = async (req, res) => {
-  const { fullName, email, password } = req.body;
+  const { fullName, email, password, preferredLanguage } = req.body;
   try {
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
@@ -25,6 +26,7 @@ export const signup = async (req, res) => {
       fullName,
       email,
       password: hashedPassword,
+      preferredLanguage: preferredLanguage || "",
     });
 
     if (newUser) {
@@ -37,6 +39,7 @@ export const signup = async (req, res) => {
         fullName: newUser.fullName,
         email: newUser.email,
         profilePic: newUser.profilePic,
+        preferredLanguage: newUser.preferredLanguage || "",
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -68,6 +71,7 @@ export const login = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       profilePic: user.profilePic,
+      preferredLanguage: user.preferredLanguage || "",
     });
   } catch (error) {
     console.log("Error in login controller", error.message);
@@ -87,12 +91,20 @@ export const logout = (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic, bio, fullName } = req.body;
+    const { profilePic, bio, fullName, preferredLanguage } = req.body;
     const userId = req.user._id;
 
     const updates = {};
     if (fullName) updates.fullName = fullName;
     if (typeof bio !== "undefined") updates.bio = bio;
+    if (typeof preferredLanguage !== "undefined") updates.preferredLanguage = preferredLanguage;
+    // Support AI preferences in profile updates
+    if (typeof req.body.smartSuggestionsEnabled !== "undefined") {
+      updates.smartSuggestionsEnabled = req.body.smartSuggestionsEnabled;
+    }
+    if (typeof req.body.aiTonePreference !== "undefined") {
+      updates.aiTonePreference = req.body.aiTonePreference;
+    }
 
     if (profilePic) {
       // upload image (profilePic can be a data URL or remote URL)
@@ -115,5 +127,63 @@ export const checkAuth = (req, res) => {
   } catch (error) {
     console.log("Error in checkAuth controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const blockUser = async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user._id;
+    if (String(targetId) === String(userId)) return res.status(400).json({ error: "Cannot block yourself" });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (!user.blockedUsers) user.blockedUsers = [];
+    if (!user.blockedUsers.find((b) => String(b) === String(targetId))) {
+      user.blockedUsers.push(targetId);
+      await user.save();
+    }
+
+    const out = await User.findById(userId).select("-password");
+    return res.status(200).json(out);
+  } catch (err) {
+    console.error("blockUser error:", err && err.message ? err.message : err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const unblockUser = async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.blockedUsers = (user.blockedUsers || []).filter((b) => String(b) !== String(targetId));
+    await user.save();
+
+    const out = await User.findById(userId).select("-password");
+    return res.status(200).json(out);
+  } catch (err) {
+    console.error("unblockUser error:", err && err.message ? err.message : err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const reportUser = async (req, res) => {
+  try {
+    const reportedId = req.params.id;
+    const reporterId = req.user._id;
+    const { reason, details } = req.body;
+    if (!reason) return res.status(400).json({ error: "reason is required" });
+
+    const rep = new Report({ reporterId, reportedId, reason, details: details || "" });
+    await rep.save();
+
+    return res.status(201).json({ message: "Report submitted" });
+  } catch (err) {
+    console.error("reportUser error:", err && err.message ? err.message : err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };

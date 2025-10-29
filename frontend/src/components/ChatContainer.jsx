@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
+import SmartReplies from "./SmartReplies";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
 
@@ -90,6 +91,13 @@ const ChatContainer = () => {
                 )}
                 {message.text && <p>{message.text}</p>}
               </div>
+
+              {/* Smart replies placed under incoming messages */}
+              {message.senderId !== authUser._id && (
+                <div className="ml-2 mt-1">
+                  <SmartReplies message={message.text} context={messages.slice(-20)} />
+                </div>
+              )}
 
               {/* reactions removed per user request */}
             </div>

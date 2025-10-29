@@ -7,6 +7,7 @@ export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
   selectedUser: null,
+  draftText: "",
   searchQuery: "",
   searchMode: "people", // "people" or "messages"
   isUsersLoading: false,
@@ -44,6 +45,8 @@ export const useChatStore = create((set, get) => ({
       toast.error(error.response.data.message);
     }
   },
+
+  setDraft: (draftText) => set({ draftText }),
 
   subscribeToMessages: () => {
     const { selectedUser } = get();

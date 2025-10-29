@@ -10,6 +10,7 @@ import { createSocketServer } from "./lib/socket.js";
 
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
+import aiRoutes from "./routes/ai.route.js";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use(
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {
