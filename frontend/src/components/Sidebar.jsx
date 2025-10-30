@@ -3,12 +3,17 @@ import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
+import NewGroupModal from "./NewGroupModal";
+import BlockedMembersModal from "./BlockedMembersModal";
 
 const Sidebar = () => {
   const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
 
   const { onlineUsers } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showBlocked, setShowBlocked] = useState(false);
   const { searchQuery, setSearchQuery, searchMode, setSearchMode } = useChatStore();
 
   useEffect(() => {
@@ -17,7 +22,7 @@ const Sidebar = () => {
 
 
   const filteredUsers = showOnlineOnly
-    ? users.filter((user) => onlineUsers.includes(user._id))
+    ? users.filter((user) => onlineUsers.includes(String(user._id)))
     : users;
 
   // Apply people search when searchMode is 'people'
@@ -49,6 +54,68 @@ const Sidebar = () => {
             />
             <span className="text-sm">Show online only</span>
           </label>
+
+          {/* three-dot menu */}
+          <div className="relative hidden lg:block ml-2">
+            <button
+              aria-label="more"
+              onClick={() => setMenuOpen((s) => !s)}
+              className="btn btn-ghost btn-xs px-2"
+            >
+              <span className="text-lg">⋮</span>
+            </button>
+
+            {menuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-48 bg-base-100 border border-base-300 rounded-md shadow-md z-50"
+                onMouseLeave={() => setMenuOpen(false)}
+              >
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-base-200"
+                  onClick={() => {
+                    setShowNewGroup(true);
+                    setMenuOpen(false);
+                  }}
+                >
+                  New Group
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-base-200"
+                  onClick={() => {
+                    setShowBlocked(true);
+                    setMenuOpen(false);
+                  }}
+                >
+                  Block Member
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-base-200"
+                  onClick={() => {
+                    // navigate to settings page
+                    window.location.href = "/settings";
+                  }}
+                >
+                  Settings
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-base-200"
+                  onClick={async () => {
+                    // call store action to mark all read
+                    try {
+                      await useChatStore.getState().markAllAsRead();
+                      // refresh users to update unseen counts
+                      await getUsers();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    setMenuOpen(false);
+                  }}
+                >
+                  Read All
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search input with visible boundary that darkens on focus */}
@@ -78,12 +145,12 @@ const Sidebar = () => {
               Messages
             </button>
 
-            <span className="text-xs text-zinc-500">({onlineUsers.length - 1} online)</span>
+            <span className="text-xs text-zinc-500">({Math.max(0, onlineUsers.length - 1)} online)</span>
           </div>
         </div>
       </div>
 
-      <div className="overflow-y-auto w-full py-3">
+  <div className="overflow-y-auto w-full py-3">
   {displayedUsers.map((user) => (
           <button
             key={user._id}
@@ -100,7 +167,7 @@ const Sidebar = () => {
                 alt={user.name}
                 className="size-12 object-cover rounded-full"
               />
-              {onlineUsers.includes(user._id) && (
+              {onlineUsers.includes(String(user._id)) && (
                 <span
                   className="absolute bottom-0 right-0 size-3 bg-green-500 
                   rounded-full ring-2 ring-zinc-900"
@@ -111,7 +178,18 @@ const Sidebar = () => {
             {/* User info - only visible on larger screens */}
             <div className="hidden lg:block text-left min-w-0">
               <div className="font-medium truncate">{user.fullName}</div>
-              {/* Removed explicit Online/Offline text - status now visible via green indicator on avatar */}
+              {/* Message preview / unread indicator */}
+              <div className="text-sm truncate mt-1">
+                {user.unseenCount > 0 ? (
+                  user.unseenCount > 5 ? (
+                    <span className="text-emerald-500 font-medium">5+ new messages</span>
+                  ) : (
+                    <span className="text-emerald-500 font-medium truncate">{user.lastUnseenText || user.lastMessage || "New message"}</span>
+                  )
+                ) : (
+                  <span className="text-base-content/70 truncate">{user.lastMessage || "No messages yet"}</span>
+                )}
+              </div>
             </div>
           </button>
         ))}
@@ -120,6 +198,9 @@ const Sidebar = () => {
           <div className="text-center text-zinc-500 py-4">No users</div>
         )}
       </div>
+      {/* Modals */}
+      <NewGroupModal open={showNewGroup} onClose={() => setShowNewGroup(false)} />
+      <BlockedMembersModal open={showBlocked} onClose={() => setShowBlocked(false)} />
     </aside>
   );
 };

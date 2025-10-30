@@ -7,6 +7,7 @@ const ProfilePage = () => {
   const [selectedImg, setSelectedImg] = useState(null);
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("");
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -27,11 +28,12 @@ const ProfilePage = () => {
     if (authUser) {
       setFullName(authUser.fullName || "");
       setBio(authUser.bio || "");
+      setPreferredLanguage(authUser.preferredLanguage || "");
     }
   }, [authUser]);
 
   const handleSave = async () => {
-    const payload = { fullName, bio };
+    const payload = { fullName, bio, preferredLanguage };
     // only include profilePic if a new one was selected via instant upload flow
     try {
       await updateProfile(payload);
@@ -113,6 +115,32 @@ const ProfilePage = () => {
                 className="px-4 py-2.5 bg-base-200 rounded-lg border w-full textarea"
                 rows={4}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-sm text-zinc-400 flex items-center gap-2">Preferred Language</div>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => setPreferredLanguage(e.target.value)}
+                className="px-4 py-2.5 bg-base-200 rounded-lg border w-full select"
+              >
+                <option value="">(No preference)</option>
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="de">German</option>
+                <option value="ur">Urdu</option>
+                <option value="es">Spanish</option>
+                <option value="ko">Korean</option>
+                <option value="te">Telugu</option>
+                <option value="fr">French</option>
+                <option value="zh">Chinese (Simplified)</option>
+                <option value="ar">Arabic</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="ja">Japanese</option>
+                <option value="it">Italian</option>
+                <option value="nl">Dutch</option>
+              </select>
             </div>
           </div>
 

@@ -22,8 +22,10 @@ export const createGroup = async (req, res) => {
       // notify each member (if connected) about new group
       for (const m of memberIds) {
         const getReceiverSocketId = req.app.get("getReceiverSocketId");
-        const sid = getReceiverSocketId(String(m));
-        if (sid) io.to(sid).emit("groupCreated", group);
+        const sids = getReceiverSocketId(String(m));
+        if (sids && sids.length) {
+          for (const sid of sids) io.to(sid).emit("groupCreated", group);
+        }
       }
     }
 
@@ -96,8 +98,10 @@ export const addMember = async (req, res) => {
     const io = req.app.get("io");
     const getReceiverSocketId = req.app.get("getReceiverSocketId");
     if (io) {
-      const sid = getReceiverSocketId(String(memberId));
-      if (sid) io.to(sid).emit("addedToGroup", group);
+      const sids = getReceiverSocketId(String(memberId));
+      if (sids && sids.length) {
+        for (const sid of sids) io.to(sid).emit("addedToGroup", group);
+      }
     }
 
     // notify room
@@ -131,8 +135,10 @@ export const removeMember = async (req, res) => {
     const io = req.app.get("io");
     const getReceiverSocketId = req.app.get("getReceiverSocketId");
     if (io) {
-      const sid = getReceiverSocketId(String(memberId));
-      if (sid) io.to(sid).emit("removedFromGroup", { groupId: group._id });
+      const sids = getReceiverSocketId(String(memberId));
+      if (sids && sids.length) {
+        for (const sid of sids) io.to(sid).emit("removedFromGroup", { groupId: group._id });
+      }
     }
 
     if (io) io.to(`group_${group._id}`).emit("groupMemberRemoved", { groupId: group._id, memberId });
@@ -198,8 +204,10 @@ export const sendGroupMessage = async (req, res) => {
           console.error("Error checking blockedUsers for group delivery:", err && err.message ? err.message : err);
           continue;
         }
-        const sid = getReceiverSocketId(mid);
-        if (sid) io.to(sid).emit("groupMessage", newMessage);
+        const sids = getReceiverSocketId(mid);
+        if (sids && sids.length) {
+          for (const sid of sids) io.to(sid).emit("groupMessage", newMessage);
+        }
       }
     }
 

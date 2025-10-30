@@ -3,6 +3,7 @@ import { useChatStore } from "../store/useChatStore";
 import { Image, Send, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { proofread as aiProofread } from "../lib/ai";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 const MessageInput = () => {
   const [text, setText] = useState("");
@@ -16,8 +17,12 @@ const MessageInput = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftText]);
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiTone, setAiTone] = useState("neutral");
+  // AI settings live in global settings (moved to Settings page)
+  const { aiSuggestionsEnabled, aiTone } = useSettingsStore();
+
+  const [proofreadModalOpen, setProofreadModalOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState([]); // { index, original, suggestion }
+  const [isProofreading, setIsProofreading] = useState(false);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -43,28 +48,14 @@ const MessageInput = () => {
     if (!text.trim() && !imagePreview) return;
 
     try {
-      let textToSend = text.trim();
-
-      // If AI proofreading is enabled, call backend to proofread/adjust tone
-      if (aiEnabled && textToSend) {
-        try {
-          const result = await aiProofread({ text: textToSend, tone: aiTone });
-          if (result && result.rewritten) {
-            textToSend = result.rewritten;
-            if (result.summary) toast.success(`AI: ${result.summary}`);
-          }
-        } catch (aiErr) {
-          console.error("AI proofread failed", aiErr);
-          toast.error("AI proofreading failed, sending original message.");
-        }
-      }
+      const textToSend = text.trim();
 
       await sendMessage({
         text: textToSend,
         image: imagePreview,
       });
 
-      // Clear draft stored in global store (if any)
+    // Clear draft stored in global store (if any)
       setDraft("");
 
       // Clear form
@@ -74,6 +65,67 @@ const MessageInput = () => {
     } catch (error) {
       console.error("Failed to send message:", error);
     }
+  };
+
+  const splitSentences = (s) => {
+    if (!s) return [];
+    const parts = s.match(/[^.!?]+[.!?]*/g);
+    return parts && parts.length ? parts.map((p) => p.trim()) : [s.trim()];
+  };
+
+  const handleProofread = async () => {
+    if (!text.trim()) return toast.error("Type a message to proofread");
+    if (!aiSuggestionsEnabled) return toast.error("AI suggestions are disabled. Enable them in Settings to use the Proofreader.");
+
+    setIsProofreading(true);
+    try {
+  const toneToUse = aiTone || "neutral";
+      const res = await aiProofread({ text: text.trim(), tone: toneToUse });
+      const corrected = (res && (res.correctedText || res.rewritten)) || text;
+      const origSent = splitSentences(text);
+      const corrSent = splitSentences(corrected);
+
+      const items = [];
+      const max = Math.max(origSent.length, corrSent.length);
+      for (let i = 0; i < max; i++) {
+        const o = origSent[i] ?? "";
+        const c = corrSent[i] ?? "";
+        if (o.trim() !== c.trim()) {
+          items.push({ index: i, original: o, suggestion: c });
+        }
+      }
+
+      setSuggestions(items);
+      setProofreadModalOpen(true);
+      if (items.length === 0) {
+        toast.success("No suggestions — looks good!");
+      }
+    } catch (err) {
+      console.error("Proofread failed:", err);
+      toast.error("Proofreading failed. Try again later.");
+    } finally {
+      setIsProofreading(false);
+    }
+  };
+
+  const applySuggestion = (item) => {
+    // Replace the sentence at item.index with suggestion
+    const origSent = splitSentences(text);
+    const newSent = [...origSent];
+    if (item.index < newSent.length) {
+      newSent[item.index] = item.suggestion;
+    } else {
+      // append if indexing mismatched
+      newSent.push(item.suggestion);
+    }
+    const updated = newSent.filter(Boolean).join(" ").trim();
+    setText(updated);
+    // remove accepted suggestion from list
+    setSuggestions((s) => s.filter((x) => !(x.index === item.index && x.suggestion === item.suggestion)));
+  };
+
+  const ignoreSuggestion = (item) => {
+    setSuggestions((s) => s.filter((x) => !(x.index === item.index && x.suggestion === item.suggestion)));
   };
 
   return (
@@ -107,29 +159,16 @@ const MessageInput = () => {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          {/* AI Proofreader toggle + tone selector */}
+          {/* Proofreader button (runs on demand) */}
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1 text-sm">
-              <input
-                type="checkbox"
-                checked={aiEnabled}
-                onChange={(e) => setAiEnabled(e.target.checked)}
-                className="checkbox checkbox-sm"
-              />
-              <span className="hidden sm:inline">AI</span>
-            </label>
-
-            <select
-              value={aiTone}
-              onChange={(e) => setAiTone(e.target.value)}
-              className="select select-sm"
-              disabled={!aiEnabled}
+            <button
+              type="button"
+              className={`btn btn-ghost btn-sm ${isProofreading ? "loading" : ""}`}
+              onClick={handleProofread}
+              title="Run Proofreader"
             >
-              <option value="neutral">Neutral</option>
-              <option value="formal">Formal</option>
-              <option value="polite">Polite</option>
-              <option value="friendly">Friendly</option>
-            </select>
+              Proofreader
+            </button>
           </div>
           <input
             type="file"
@@ -156,6 +195,40 @@ const MessageInput = () => {
           <Send size={22} />
         </button>
       </form>
+
+      {proofreadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-base-100 w-full max-w-lg rounded-md p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Proofreader Suggestions</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setProofreadModalOpen(false); setSuggestions([]); }}>Close</button>
+            </div>
+
+            <div className="mt-3 max-h-64 overflow-y-auto">
+              {suggestions.length === 0 ? (
+                <div className="py-6 text-center text-sm text-base-content/70">No suggestions available.</div>
+              ) : (
+                suggestions.map((s) => (
+                  <div key={`${s.index}-${s.suggestion}`} className="border-b py-2">
+                    <div className="text-xs text-base-content/70">Original</div>
+                    <div className="mb-1">{s.original}</div>
+                    <div className="text-xs text-base-content/70">Suggestion</div>
+                    <div className="mb-2 font-medium">{s.suggestion}</div>
+                    <div className="flex gap-2">
+                      <button className="btn btn-sm btn-primary" onClick={() => applySuggestion(s)}>Accept</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => ignoreSuggestion(s)}>Ignore</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="btn btn-ghost" onClick={() => { setProofreadModalOpen(false); setSuggestions([]); }}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

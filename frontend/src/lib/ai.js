@@ -10,8 +10,8 @@ export async function assistant({ instruction, context = [] }) {
   return res.data;
 }
 
-export async function smartReplies({ message, context = [] }) {
-  const res = await axiosInstance.post("/ai/smart-replies", { message, context });
+export async function smartReplies({ message, context = [], tone = "neutral" }) {
+  const res = await axiosInstance.post("/ai/smart-replies", { message, context, tone });
   return res.data;
 }
 

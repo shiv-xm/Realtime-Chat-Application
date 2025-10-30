@@ -46,6 +46,19 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // Mark all unread messages where current user is the receiver as read
+  markAllAsRead: async () => {
+    try {
+      await axiosInstance.post(`/messages/mark-all-read`);
+      // refresh users/messages as needed by callers
+      return true;
+    } catch (error) {
+      console.error("markAllAsRead error:", error && (error.response?.data || error.message));
+      toast.error("Failed to mark messages as read");
+      return false;
+    }
+  },
+
   setDraft: (draftText) => set({ draftText }),
 
   subscribeToMessages: () => {

@@ -28,8 +28,8 @@ export const smartReplies = async (req, res) => {
   try {
     const { message, context } = req.body;
     if (!message) return res.status(400).json({ message: "message is required" });
-
-    const replies = await generateSmartReplies(message, context || []);
+    const tone = req.body?.tone || "neutral";
+    const replies = await generateSmartReplies(message, context || [], tone);
     return res.json({ replies });
   } catch (error) {
     console.error("AI SmartReplies error:", error);

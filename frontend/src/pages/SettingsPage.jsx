@@ -1,6 +1,7 @@
 import { THEMES } from "../constants";
 import { useThemeStore } from "../store/useThemeStore";
 import { Send } from "lucide-react";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 const PREVIEW_MESSAGES = [
   { id: 1, content: "Hey! How's it going?", isSent: false },
@@ -9,6 +10,7 @@ const PREVIEW_MESSAGES = [
 
 const SettingsPage = () => {
   const { theme, setTheme } = useThemeStore();
+  const { aiSuggestionsEnabled, aiRepliesEnabled, aiTone, setAiSuggestionsEnabled, setAiRepliesEnabled, setAiTone } = useSettingsStore();
 
   return (
     <div className="h-screen container mx-auto px-4 pt-20 max-w-5xl">
@@ -45,6 +47,45 @@ const SettingsPage = () => {
 
         {/* Preview Section */}
         <h3 className="text-lg font-semibold mb-3">Preview</h3>
+        {/* AI Settings */}
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">AI Features</h2>
+          <p className="text-sm text-base-content/70">Control AI-powered suggestions and tone adjustments used across the app.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="checkbox"
+              checked={aiSuggestionsEnabled}
+              onChange={(e) => setAiSuggestionsEnabled(e.target.checked)}
+            />
+            <span className="text-sm">Enable AI Suggestions (proofreading, rewrites)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={aiRepliesEnabled}
+                onChange={(e) => setAiRepliesEnabled(e.target.checked)}
+              />
+              <span className="text-sm">Enable AI Replies (auto-generate suggestions)</span>
+            </label>
+
+            <select
+              className="select select-sm"
+              value={aiTone}
+              onChange={(e) => setAiTone(e.target.value)}
+            >
+              <option value="neutral">Neutral</option>
+              <option value="professional">Professional</option>
+              <option value="friendly">Friendly</option>
+              <option value="polite">Polite</option>
+            </select>
+          </div>
+        </div>
         <div className="rounded-xl border border-base-300 overflow-hidden bg-base-100 shadow-lg">
           <div className="p-4 bg-base-200">
             <div className="max-w-lg mx-auto">

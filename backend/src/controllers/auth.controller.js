@@ -187,3 +187,18 @@ export const reportUser = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select("blockedUsers");
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const blockedIds = user.blockedUsers || [];
+    const blockedUsers = await User.find({ _id: { $in: blockedIds } }).select("fullName email profilePic");
+    return res.status(200).json(blockedUsers);
+  } catch (err) {
+    console.error("getBlockedUsers error:", err && err.message ? err.message : err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};

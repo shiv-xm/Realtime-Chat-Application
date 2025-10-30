@@ -84,10 +84,19 @@ export const useAuthStore = create((set, get) => ({
 
   connectSocket: () => {
     const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    console.log("connectSocket called, authUser:", authUser);
+    if (!authUser) {
+      console.log("connectSocket: no authUser, skipping socket connect");
+      return;
+    }
+    if (get().socket?.connected) {
+      console.log("connectSocket: socket already connected");
+      return;
+    }
 
+    // send userId via socket auth (preferred) so server can read it from handshake.auth
     const socket = io(BASE_URL, {
-      query: {
+      auth: {
         userId: authUser._id,
       },
     });
@@ -95,8 +104,15 @@ export const useAuthStore = create((set, get) => ({
 
     set({ socket: socket });
 
+    socket.on("connect", () => {
+      console.log("Socket connected -> id:", socket.id, "connected:", socket.connected);
+    });
+
     socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
+      console.log("Received getOnlineUsers ->", userIds);
+      // normalize to strings to avoid type mismatches (ObjectId vs string)
+      const normalized = Array.isArray(userIds) ? userIds.map((id) => String(id)) : [];
+      set({ onlineUsers: normalized });
     });
   },
   disconnectSocket: () => {

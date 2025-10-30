@@ -5,6 +5,7 @@ import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import SmartReplies from "./SmartReplies";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
 
@@ -20,6 +21,8 @@ const ChatContainer = () => {
   const { searchQuery, searchMode } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const firstUnreadRef = useRef(null);
+  const { aiRepliesEnabled } = useSettingsStore();
 
   useEffect(() => {
     getMessages(selectedUser._id);
@@ -30,10 +33,23 @@ const ChatContainer = () => {
   }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (!messages || messages.length === 0) return;
+
+    // Find first unread incoming message (sent by selectedUser and not read)
+    const firstUnread = messages.find((m) => m.senderId === selectedUser._id && !m.isRead);
+    if (firstUnread) {
+      // scroll to first unread message if present
+      // We attach ref to that message element during render
+        if (firstUnreadRef.current) {
+          // attempt to scroll; ignore any exceptions
+          try { firstUnreadRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); return; } catch { /* ignore */ }
+        }
+    }
+
+    if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, selectedUser._id]);
 
   // prepare message search results (search within currently loaded messages)
   const messageMatches =
@@ -63,12 +79,15 @@ const ChatContainer = () => {
             return <div className="text-center text-zinc-500 py-4">No matching messages</div>;
           }
 
+          // determine first unread incoming message id
+          const firstUnread = (renderMessages || []).find((m) => m.senderId === selectedUser._id && !m.isRead);
+          const firstUnreadId = firstUnread?._id;
+
           return renderMessages.map((message) => (
             <div
               key={message._id}
-            
               className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-              ref={messageEndRef}
+              ref={message._id === firstUnreadId ? firstUnreadRef : messageEndRef}
             >
               <div className=" chat-image avatar">
                 <div className="size-10 rounded-full border">
@@ -89,11 +108,16 @@ const ChatContainer = () => {
                 {message.image && (
                   <img src={message.image} alt="Attachment" className="sm:max-w-[200px] rounded-md mb-2" />
                 )}
-                {message.text && <p>{message.text}</p>}
+                {(() => {
+                  // Show translatedText for incoming messages when available, otherwise fallback to stored text
+                  const incoming = message.senderId !== authUser._id;
+                  const display = incoming ? (message.translatedText || message.text) : (message.text || message.translatedText || "");
+                  return display ? <p>{display}</p> : null;
+                })()}
               </div>
 
-              {/* Smart replies placed under incoming messages */}
-              {message.senderId !== authUser._id && (
+              {/* Smart replies placed under incoming messages when enabled in Settings */}
+              {message.senderId !== authUser._id && aiRepliesEnabled && (
                 <div className="ml-2 mt-1">
                   <SmartReplies message={message.text} context={messages.slice(-20)} />
                 </div>

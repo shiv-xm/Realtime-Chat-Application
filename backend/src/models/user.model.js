@@ -25,6 +25,11 @@ const userSchema = new mongoose.Schema(
        type: String,
        default: "",
     },
+   preferredLanguage: {
+      type: String,
+      default: "",
+   },
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
    },
    {timestamps : true}
 );

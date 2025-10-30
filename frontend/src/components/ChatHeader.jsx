@@ -42,7 +42,7 @@ const ChatHeader = () => {
             <button onClick={() => setShowProfile(true)} className="font-medium hover:underline">
               {selectedUser.fullName}
             </button>
-            <p className="text-sm text-base-content/70">{onlineUsers.includes(selectedUser._id) ? "Online" : "Offline"}</p>
+            <p className="text-sm text-base-content/70">{onlineUsers.includes(String(selectedUser._id)) ? "Online" : "Offline"}</p>
           </div>
         </div>
 

@@ -59,7 +59,36 @@ export const getMessages = async (req, res) => {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
-    });
+    }).sort({ createdAt: 1 }).lean();
+
+    // If current user has a preferred language, attempt to translate incoming messages
+    const myProfile = await User.findById(myId).select("preferredLanguage").lean();
+    const preferred = myProfile?.preferredLanguage ? myProfile.preferredLanguage.trim() : "";
+
+    if (preferred) {
+      // Translate only messages that were sent by the other user (incoming to current user)
+      for (const m of messages) {
+        try {
+          // only translate if this message was sent by the chat partner
+          if (String(m.senderId) === String(userToChatId)) {
+            // if already translated to the same language, reuse it
+            if (m.targetLanguage && m.targetLanguage === preferred && m.translatedText) continue;
+
+            const sourceText = m.originalText || m.text || "";
+            if (!sourceText) continue;
+
+            const { translatedText } = await translateText(sourceText, preferred);
+            if (translatedText) {
+              m.translatedText = translatedText;
+              m.targetLanguage = preferred;
+            }
+          }
+        } catch (err) {
+          console.error("translation on fetch failed for message", m._id, err && err.message ? err.message : err);
+          // continue without translation
+        }
+      }
+    }
 
     res.status(200).json(messages);
   } catch (error) {
@@ -152,15 +181,17 @@ export const sendMessage = async (req, res) => {
     const io = req.app.get("io");
     const getReceiverSocketId = req.app.get("getReceiverSocketId");
 
-    const receiverSocketId = getReceiverSocketId(receiverId);
-    if (receiverSocketId) {
-      // deliver the saved message (contains translatedText when available)
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+    const receiverSocketIds = getReceiverSocketId(receiverId);
+    if (receiverSocketIds && receiverSocketIds.length > 0) {
+      // deliver the saved message to all connected sockets for that user
+      for (const sid of receiverSocketIds) io.to(sid).emit("newMessage", newMessage);
     }
 
     // Also notify sender's other clients about the new message
-    const senderSocketId = getReceiverSocketId(senderId);
-    if (senderSocketId) io.to(senderSocketId).emit("newMessage", newMessage);
+    const senderSocketIds = getReceiverSocketId(senderId);
+    if (senderSocketIds && senderSocketIds.length > 0) {
+      for (const sid of senderSocketIds) io.to(sid).emit("newMessage", newMessage);
+    }
 
     res.status(201).json(newMessage);
   } catch (error) {
@@ -220,12 +251,16 @@ export const reactToMessage = async (req, res) => {
 
     // notify recipient
     const otherUserId = message.senderId.toString() === userId.toString() ? message.receiverId : message.senderId;
-    const otherSocketId = getReceiverSocketId(otherUserId.toString());
-    if (otherSocketId) io.to(otherSocketId).emit("messageReactionUpdated", message);
+    const otherSocketIds = getReceiverSocketId(otherUserId.toString());
+    if (otherSocketIds && otherSocketIds.length > 0) {
+      for (const sid of otherSocketIds) io.to(sid).emit("messageReactionUpdated", message);
+    }
 
     // notify actor's other clients
-    const actorSocketId = getReceiverSocketId(userId.toString());
-    if (actorSocketId) io.to(actorSocketId).emit("messageReactionUpdated", message);
+    const actorSocketIds = getReceiverSocketId(userId.toString());
+    if (actorSocketIds && actorSocketIds.length > 0) {
+      for (const sid of actorSocketIds) io.to(sid).emit("messageReactionUpdated", message);
+    }
 
     res.status(200).json(message);
   } catch (error) {
@@ -248,6 +283,21 @@ export const markMessagesRead = async (req, res) => {
     res.status(200).json({ modifiedCount: result.modifiedCount || result.nModified || 0 });
   } catch (error) {
     console.error("Error in markMessagesRead:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const markAllMessagesRead = async (req, res) => {
+  try {
+    const myId = req.user._id;
+    const result = await Message.updateMany(
+      { receiverId: myId, isRead: { $ne: true } },
+      { $set: { isRead: true } }
+    );
+
+    res.status(200).json({ modifiedCount: result.modifiedCount || result.nModified || 0 });
+  } catch (error) {
+    console.error("Error in markAllMessagesRead:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
